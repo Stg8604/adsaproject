@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Debt Simplification</title>
+    <style>
+      /* Your CSS styles here */
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Debt Simplification</h1>
+
+      <h2>Debt Matrix</h2>
+      <input
+        type="number"
+        id="personCount"
+        placeholder="Enter number of persons"
+      />
+      <button onclick="generateTable()">Generate Table</button>
+      <button onclick="printMatrix()">Print Matrix</button>
+      <div id="tableContainer"></div>
+      <div class="output" id="outputContainer">
+        <!-- Simplified transaction details will be displayed here -->
+      </div>
+      <script>
+        var debtData = [];
+
+        function generateTable() {
+          var personCount = document.getElementById("personCount").value;
+          var tableContainer = document.getElementById("tableContainer");
+          var table = "<table><tr><th>Person</th>";
+          for (var i = 1; i <= personCount; i++) {
+            table += "<th>Person " + i + "</th>";
+          }
+          table += "</tr>";
+          for (var i = 1; i <= personCount; i++) {
+            table += "<tr><td><strong>Person " + i + "</strong></td>";
+            for (var j = 1; j <= personCount; j++) {
+              table +=
+                '<td><input type="number" id="debt' +
+                i +
+                j +
+                '" placeholder="Debt"></td>';
+            }
+            table += "</tr>";
+          }
+          table += "</table>";
+          tableContainer.innerHTML = table;
+        }
+
+        function printMatrix() {
+          var personCount = document.getElementById("personCount").value;
+          debtData = [];
+          for (var i = 1; i <= personCount; i++) {
+            var row = [];
+            for (var j = 1; j <= personCount; j++) {
+              var debt = document.getElementById("debt" + i + j).value;
+              row.push(debt ? parseInt(debt) : 0);
+            }
+            debtData.push(row);
+          }
+          console.log(debtData);
+
+          // Get input values (amounts owed) from the form
+          const numPeople = parseInt(debtData.length, 10);
+          // Add more input value retrieval here (e.g., amounts between specific people)
+
+          // Initialize netChange array
+          const netChange = new Array(numPeople).fill(0);
+
+          // Calculate net change for each person
+          for (let i = 0; i < numPeople; i++) {
+            for (let j = 0; j < numPeople; j++) {
+              const diff = debtData[j][i] - debtData[i][j];
+              netChange[i] += diff;
+            }
+          }
+
+          // Initialize max heap for Givers (positive net change)
+          const maxQ = [];
+          for (let i = 0; i < numPeople; i++) {
+            if (netChange[i] > 0) {
+              maxQ.push([i, netChange[i]]);
+            }
+          }
+          maxQ.sort((a, b) => b[1] - a[1]);
+
+          // Initialize min heap for Receivers (negative net change)
+          const minQ = [];
+          for (let i = 0; i < numPeople; i++) {
+            if (netChange[i] < 0) {
+              minQ.push([i, netChange[i]]);
+            }
+          }
+          minQ.sort((a, b) => a[1] - b[1]);
+
+          // Simplify debts
+          const simplifiedTransactions = [];
+          while (minQ.length > 0 && maxQ.length > 0) {
+            const [debtor, maxDebit] = minQ.pop();
+            const [creditor, maxCredit] = maxQ.pop();
+            const transactionVal = maxCredit + maxDebit;
+
+            if (transactionVal === 0) {
+              simplifiedTransactions.push({
+                debtor,
+                creditor,
+                amount: maxCredit,
+              });
+            } else if (transactionVal < 0) {
+              simplifiedTransactions.push({
+                debtor,
+                creditor,
+                amount: maxCredit,
+              });
+              minQ.push([debtor, transactionVal]);
+            } else {
+              simplifiedTransactions.push({
+                debtor,
+                creditor,
+                amount: -maxDebit,
+              });
+              maxQ.push([creditor, transactionVal]);
+            }
+          }
+
+          // Display the simplified transactions
+          const outputContainer = document.getElementById("outputContainer");
+          outputContainer.innerHTML = "";
+          simplifiedTransactions.forEach((transaction) => {
+            const transactionDiv = document.createElement("div");
+            transactionDiv.classList.add("transaction");
+            transactionDiv.textContent = `Person ${
+              transaction.debtor + 1
+            } pays ${transaction.amount} to Person ${transaction.creditor + 1}`;
+            outputContainer.appendChild(transactionDiv);
+          });
+        }
+      </script>
+    </div>
+
+    <script></script>
+  </body>
+</html>
