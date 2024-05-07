@@ -1,356 +1,446 @@
 import java.util.*;
 import static java.lang.Math.min;
 
-public class Minimise {
-    private static final long OFFSET = 1000000000L;
-    private static Set<Long> visitedEdges;
+public class SimplifyDebts {
+  private static final long OFFSET = 1000000000L;
+  private static Set<Long> visitedEdges;
 
-    public static void main(String[] args) {
-        createGraph();
-    }
-
-    private static void createGraph() {
-        Scanner scanner = new Scanner(System.in);
-        System.out.println("Enter number of people in the group");
-        int n=scanner.nextInt();
-        scanner.nextLine();
-        String[] group=new String[n];
-        System.out.println("Enter the names of people");
-        for(int i=0;i<n;i++){
-            group[i]=scanner.nextLine();
-        }
-        scanner.close();
-        Dinics solver = new Dinics(n, group);
-        solver = addAllTransactions(solver);
-        System.out.println();
-        System.out.println("Minimised Values:");
-        System.out.println();
-        visitedEdges = new HashSet<>();
-        Integer edgePos;
-
-        while ((edgePos = noVisit(solver.getEdges())) != null) {
-            solver.recompute();
-            Dinics.Edge firstEdge = solver.getEdges().get(edgePos);
-            solver.setSource(firstEdge.from);
-            solver.setSink(firstEdge.to);
-            List<Dinics.Edge>[] residualGraph = solver.getGraph();
-            List<Dinics.Edge> newEdges = new ArrayList<>();
-            for (List<Dinics.Edge> allEdges : residualGraph) {
-                for (Dinics.Edge edge : allEdges) {
-                    long remainingFlow = ((edge.flow < 0) ? edge.capacity : (edge.capacity - edge.flow));
-                    if (remainingFlow > 0) {
-                        newEdges.add(new Dinics.Edge(edge.from, edge.to, remainingFlow));
-                    }
-                }
-            }
-            long maxFlow = solver.getMaxFlow();
-            int source = solver.getSource();
-            int sink = solver.getSink();
-            visitedEdges.add(getHashKeyForEdge(source, sink));
-            solver = new Dinics(n, group);
-            solver.addEdges(newEdges);
-            solver.addEdge(source, sink, maxFlow);
-        }
-        solver.printEdges();
-        System.out.println();
-    }
-
-    private static Dinics addAllTransactions(Dinics solver) {
-        /* 
-        solver.addEdge(1, 2, 20);
-        solver.addEdge(1, 3, 10);
-        solver.addEdge(3, 4, 15);
-        solver.addEdge(3, 6, 11);
-        solver.addEdge(7, 6, 20);
-        solver.addEdge(7, 1, 25);
-        solver.addEdge(4, 5, 6);
-        solver.addEdge(5, 2, 9);
-        solver.addEdge(5, 7, 13);
-        */
-        int yesn=1;
-        int edge1,edge2,weight;
-        Scanner scanner=new Scanner(System.in);
-        while(true){
-            System.out.println("Enter want to add edge yes/no");
-            yesn=scanner.nextInt();
-            if(yesn==1){
-                System.out.println("Enter edge 1:");
-                edge1=scanner.nextInt();
-                System.out.println("Enter edge 2:");
-                edge2=scanner.nextInt();
-                System.out.println("Enter weight:");
-                weight=scanner.nextInt();
-                scanner.close();
-                solver.addEdge(edge1,edge2,weight);
-            } else{
-                break;
-            }
-        }
-        return solver;
-    }
-
-    private static Integer noVisit(List<Dinics.Edge> edges) {
-        Integer edgePos = null;
-        int curEdge = 0;
-        for (Dinics.Edge edge : edges) {
-            if (!visitedEdges.contains(getHashKeyForEdge(edge.from, edge.to))) {
-                edgePos = curEdge;
-            }
-            curEdge++;
-        }
-        return edgePos;
-    }
-
-    private static Long getHashKeyForEdge(int u, int v) {
-        return u * OFFSET + v;
-    }
-}
-
-class Dinics extends FlowSolver {
-
-    private int[] level;
-
-    public Dinics(int n, String[] vertexLabels) {
-        super(n, vertexLabels);
-        level = new int[n];
-    }
-
-    @Override
-    public void solve() {
-       
-        int[] next = new int[n];
-
-        while (bfs()) {
-            Arrays.fill(next, 0);
-            for (long f = dfs(s, next, INF); f != 0; f = dfs(s, next, INF)) {
-                maxFlow += f;
-            }
-        }
-
-        for (int i = 0; i < n; i++)
-            if (level[i] != -1)
-                minCut[i] = true;
-    }
-
-    private boolean bfs() {
-        Arrays.fill(level, -1);
-        level[s] = 0;
-        Deque<Integer> q = new ArrayDeque<>(n);
-        q.offer(s);
-        while (!q.isEmpty()) {
-            int node = q.poll();
-            for (Edge edge : graph[node]) {
-                long cap = edge.remainingCapacity();
-                if (cap > 0 && level[edge.to] == -1) {
-                    level[edge.to] = level[node] + 1;
-                    q.offer(edge.to);
-                }
-            }
-        }
-        return level[t] != -1;
-    }
-
-    private long dfs(int at, int[] next, long flow) {
-        if (at == t)
-            return flow;
-        final int numEdges = graph[at].size();
-
-        for (; next[at] < numEdges; next[at]++) {
-            Edge edge = graph[at].get(next[at]);
-            long cap = edge.remainingCapacity();
-            if (cap > 0 && level[edge.to] == level[at] + 1) {
-
-                long bottleNeck = dfs(edge.to, next, min(flow, cap));
-                if (bottleNeck > 0) {
-                    edge.augment(bottleNeck);
-                    return bottleNeck;
-                }
-            }
-        }
-        return 0;
-    }
-}
-
-abstract class FlowSolver {
-
-    protected static final long INF = Long.MAX_VALUE / 2;
-
-    public static class Edge {
-        public int from, to;
-        public String fromLabel, toLabel;
-        public Edge residual;
-        public long flow, cost;
-        public final long capacity, originalCost;
-
-        public Edge(int from, int to, long capacity) {
-            this(from, to, capacity, 0 /* unused */);
-        }
-
-        public Edge(int from, int to, long capacity, long cost) {
-            this.from = from;
-            this.to = to;
-            this.capacity = capacity;
-            this.originalCost = this.cost = cost;
-        }
-
-        public boolean isResidual() {
-            return capacity == 0;
-        }
-
-        public long remainingCapacity() {
-            return capacity - flow;
-        }
-
-        public void augment(long bottleNeck) {
-            flow += bottleNeck;
-            residual.flow -= bottleNeck;
-        }
-
-        public String toString(int s, int t) {
-            String u = (from == s) ? "s" : ((from == t) ? "t" : String.valueOf(from));
-            String v = (to == s) ? "s" : ((to == t) ? "t" : String.valueOf(to));
-            return String.format(
-                    "Edge %s -> %s | flow = %d | capacity = %d | is residual: %s",
-                    u, v, flow, capacity, isResidual());
-        }
-    }
-
-    protected int n, s, t;
-
-    protected long maxFlow;
-    protected long minCost;
-
-    protected boolean[] minCut;
-    protected List<Edge>[] graph;
-    protected String[] vertexLabels;
-    protected List<Edge> edges;
-
-    private int visitedToken = 1;
-    private int[] visited;
-
-    protected boolean solved;
-
-    public FlowSolver(int n, String[] vertexLabels) {
-        this.n = n;
-        initializeGraph();
-        assignLabelsToVertices(vertexLabels);
-        minCut = new boolean[n];
-        visited = new int[n];
-        edges = new ArrayList<>();
-    }
-
-    private void initializeGraph() {
-        graph = new List[n];
-        for (int i = 0; i < n; i++)
-            graph[i] = new ArrayList<Edge>();
-    }
-
-    private void assignLabelsToVertices(String[] vertexLabels) {
-        if (vertexLabels.length != n)
-            throw new IllegalArgumentException(String.format("You must pass %s number of labels", n));
-        this.vertexLabels = vertexLabels;
-    }
-
-    public void addEdges(List<Edge> edges) {
-        if (edges == null)
-            throw new IllegalArgumentException("Edges cannot be null");
-        for (Edge edge : edges) {
-            addEdge(edge.from, edge.to, edge.capacity);
-        }
-    }
-
-    public void addEdge(int from, int to, long capacity) {
-        if (capacity < 0)
-            throw new IllegalArgumentException("Capacity < 0");
-        Edge e1 = new Edge(from, to, capacity);
-        Edge e2 = new Edge(to, from, 0);
-        e1.residual = e2;
-        e2.residual = e1;
-        graph[from].add(e1);
-        graph[to].add(e2);
-        edges.add(e1);
-    }
-
-    public void addEdge(int from, int to, long capacity, long cost) {
-        Edge e1 = new Edge(from, to, capacity, cost);
-        Edge e2 = new Edge(to, from, 0, -cost);
-        e1.residual = e2;
-        e2.residual = e1;
-        graph[from].add(e1);
-        graph[to].add(e2);
-        edges.add(e1);
-    }
-
-    public void visit(int i) {
-        visited[i] = visitedToken;
-    }
-
-    public boolean visited(int i) {
-        return visited[i] == visitedToken;
-    }
+  public static void main(String[] args) {
+    createGraphForDebts();
+  }
 
  
-    public void markAllNodesAsUnvisited() {
-        visitedToken++;
-    }
+private static void createGraphForDebts() {
+    // List of all people in the group
+    String[] person = { "Alice", "Bob", "Charlie", "David", "Ema", "Fred", "Gabe"};
+    int n = person.length;
+    
+    // Start measuring time
+    long startTime = System.nanoTime();
+    
+    // Creating a graph with n vertices
+    Dinics solver = new Dinics(n, person);
+    
+    // Adding edges to the graph
+    solver = addAllTransactions(solver);
 
-    public List<Edge>[] getGraph() {
-        execute();
-        return graph;
-    }
+    System.out.println();
+    System.out.println("Simplifying Debts...");
+    System.out.println("--------------------");
+    System.out.println();
+    
+    // Map to keep track of visited edges
+    visitedEdges = new HashSet<>();
+    Integer edgePos;
 
-    public List<Edge> getEdges() {
-        return edges;
-    }
+    while((edgePos = getNonVisitedEdge(solver.getEdges())) != null) {
+        // Force recomputation of subsequent flows in the graph
+        solver.recompute();
+        
+        // Set source and sink in the flow graph
+        Dinics.Edge firstEdge = solver.getEdges().get(edgePos);
+        solver.setSource(firstEdge.from);
+        solver.setSink(firstEdge.to);
+        
+        // Initialize the residual graph to be same as the given graph
+        List<Dinics.Edge>[] residualGraph = solver.getGraph();
+        List<Dinics.Edge> newEdges = new ArrayList<>();
 
-    public long getMaxFlow() {
-        execute();
-        return maxFlow;
-    }
-
-    public long getMinCost() {
-        execute();
-        return minCost;
-    }
-
-    public boolean[] getMinCut() {
-        execute();
-        return minCut;
-    }
-
-    public void setSource(int s) {
-        this.s = s;
-    }
-
-    public void setSink(int t) {
-        this.t = t;
-    }
-
-    public int getSource() {
-        return s;
-    }
-
-    public int getSink() {
-        return t;
-    }
-
-    public void recompute() {
-        solved = false;
-    }
-
-    public void printEdges() {
-        for (Edge edge : edges) {
-            System.out.println(
-                    String.format("%s owes %s rupees to %s", vertexLabels[edge.from], edge.capacity, vertexLabels[edge.to]));
+        for(List<Dinics.Edge> allEdges : residualGraph) {
+            for(Dinics.Edge edge : allEdges) {
+                long remainingFlow = ((edge.flow < 0) ? edge.capacity : (edge.capacity - edge.flow));
+                // If there is capacity remaining in the graph, then add the remaining capacity as an edge
+                // so that it can be used for optimizing other debts within the graph
+                if(remainingFlow > 0) {
+                    newEdges.add(new Dinics.Edge(edge.from, edge.to, remainingFlow));
+                }
+            }
         }
+
+        // Get the maximum flow between the source and sink
+        long maxFlow = solver.getMaxFlow();
+        
+        // Mark the edge from source to sink as visited
+        int source = solver.getSource();
+        int sink = solver.getSink();
+        visitedEdges.add(getHashKeyForEdge(source, sink));
+        
+        // Create a new graph
+        solver = new Dinics(n, person);
+        
+        // Add edges having remaining capacity
+        solver.addEdges(newEdges);
+        
+        // Add an edge from source to sink in the new graph with obtained maximum flow as it's weight
+        solver.addEdge(source, sink, maxFlow);
+    }
+    // Print the edges in the graph
+    solver.printEdges();
+    System.out.println();
+    
+    // Stop measuring time
+    long endTime = System.nanoTime();
+    
+    // Calculate duration in milliseconds
+    long duration = (endTime - startTime) / 10000000;
+    
+    // Print the execution time
+    System.out.println("Execution time: " + duration*0.001 + " milliseconds");
+}
+
+
+  private static Dinics addAllTransactions(Dinics solver) {
+    //  Transactions made by Bob
+    solver.addEdge(1, 2, 40);
+    //  Transactions made by Charlie
+    solver.addEdge(2, 3, 20);
+    //  Transactions made by David
+    solver.addEdge(3, 4, 50);
+    //  Transactions made by Fred
+    solver.addEdge(5, 1, 10);
+    solver.addEdge(5, 2, 30);
+    solver.addEdge(5, 3, 10);
+    solver.addEdge(5, 4, 10);
+    //  Transactions made by Gabe
+    solver.addEdge(6, 1, 30);
+    solver.addEdge(6, 3, 10);
+    return solver;
+  }
+
+
+  private static Integer getNonVisitedEdge(List<Dinics.Edge> edges) {
+    Integer edgePos = null;
+    int curEdge = 0;
+    for(Dinics.Edge edge : edges) {
+      if(!visitedEdges.contains(getHashKeyForEdge(edge.from, edge.to))) {
+        edgePos = curEdge;
+      }
+      curEdge++;
+    }
+    return edgePos;
+  }
+
+
+  private static Long getHashKeyForEdge(int u, int v) {
+    return u * OFFSET + v;
+  }
+}
+
+
+class Dinics extends NetworkFlowSolverBase {
+
+  private int[] level;
+
+  /**
+   * Creates an instance of a flow network solver. Use the {@link #addEdge} method to add edges to
+   * the graph.
+   *
+   * @param n - The number of nodes in the graph including source and sink nodes.
+   */
+  public Dinics(int n, String[] vertexLabels) {
+    super(n, vertexLabels);
+    level = new int[n];
+  }
+
+  @Override
+  public void solve() {
+    // next[i] indicates the next unused edge index in the adjacency list for node i. This is part
+    // of the Shimon Even and Alon Itai optimization of pruning deads ends as part of the DFS phase.
+    int[] next = new int[n];
+
+    while (bfs()) {
+      Arrays.fill(next, 0);
+      // Find max flow by adding all augmenting path flows.
+      for (long f = dfs(s, next, INF); f != 0; f = dfs(s, next, INF)) {
+        maxFlow += f;
+      }
     }
 
-    private void execute() {
-        if (solved)
-            return;
-        solved = true;
-        solve();
+    for (int i = 0; i < n; i++) if (level[i] != -1) minCut[i] = true;
+  }
+
+  // Do a BFS from source to sink and compute the depth/level of each node
+  // which is the minimum number of edges from that node to the source.
+  private boolean bfs() {
+    Arrays.fill(level, -1);
+    level[s] = 0;
+    Deque<Integer> q = new ArrayDeque<>(n);
+    q.offer(s);
+    while (!q.isEmpty()) {
+      int node = q.poll();
+      for (Edge edge : graph[node]) {
+        long cap = edge.remainingCapacity();
+        if (cap > 0 && level[edge.to] == -1) {
+          level[edge.to] = level[node] + 1;
+          q.offer(edge.to);
+        }
+      }
+    }
+    return level[t] != -1;
+  }
+
+  private long dfs(int at, int[] next, long flow) {
+    if (at == t) return flow;
+    final int numEdges = graph[at].size();
+
+    for (; next[at] < numEdges; next[at]++) {
+      Edge edge = graph[at].get(next[at]);
+      long cap = edge.remainingCapacity();
+      if (cap > 0 && level[edge.to] == level[at] + 1) {
+
+        long bottleNeck = dfs(edge.to, next, min(flow, cap));
+        if (bottleNeck > 0) {
+          edge.augment(bottleNeck);
+          return bottleNeck;
+        }
+      }
+    }
+    return 0;
+  }
+}
+
+
+abstract class NetworkFlowSolverBase {
+
+  // To avoid overflow, set infinity to a value less than Long.MAX_VALUE;
+  protected static final long INF = Long.MAX_VALUE / 2;
+
+  public static class Edge {
+    public int from, to;
+    public String fromLabel, toLabel;
+    public Edge residual;
+    public long flow, cost;
+    public final long capacity, originalCost;
+
+    public Edge(int from, int to, long capacity) {
+      this(from, to, capacity, 0 /* unused */);
     }
 
-    public abstract void solve();
+    public Edge(int from, int to, long capacity, long cost) {
+      this.from = from;
+      this.to = to;
+      this.capacity = capacity;
+      this.originalCost = this.cost = cost;
+    }
+
+    public boolean isResidual() {
+      return capacity == 0;
+    }
+
+    public long remainingCapacity() {
+      return capacity - flow;
+    }
+
+    public void augment(long bottleNeck) {
+      flow += bottleNeck;
+      residual.flow -= bottleNeck;
+    }
+
+    public String toString(int s, int t) {
+      String u = (from == s) ? "s" : ((from == t) ? "t" : String.valueOf(from));
+      String v = (to == s) ? "s" : ((to == t) ? "t" : String.valueOf(to));
+      return String.format(
+          "Edge %s -> %s | flow = %d | capacity = %d | is residual: %s",
+          u, v, flow, capacity, isResidual());
+    }
+  }
+
+  // Inputs: n = number of nodes, s = source, t = sink
+  protected int n, s, t;
+
+  protected long maxFlow;
+  protected long minCost;
+
+  protected boolean[] minCut;
+  protected List<Edge>[] graph;
+  protected String[] vertexLabels;
+  protected List<Edge> edges;
+
+  // 'visited' and 'visitedToken' are variables used for graph sub-routines to
+  // track whether a node has been visited or not. In particular, node 'i' was
+  // recently visited if visited[i] == visitedToken is true. This is handy
+  // because to mark all nodes as unvisited simply increment the visitedToken.
+  private int visitedToken = 1;
+  private int[] visited;
+
+  // Indicates whether the network flow algorithm has ran. We should not need to
+  // run the solver multiple times, because it always yields the same result.
+  protected boolean solved;
+
+  /**
+   * Creates an instance of a flow network solver. Use the {@link #addEdge} method to add edges to
+   * the graph.
+   *
+   * @param n - The number of nodes in the graph including source and sink nodes.
+   */
+  public NetworkFlowSolverBase(int n, String[] vertexLabels) {
+    this.n = n;
+    initializeGraph();
+    assignLabelsToVertices(vertexLabels);
+    minCut = new boolean[n];
+    visited = new int[n];
+    edges = new ArrayList<>();
+  }
+
+  // Construct an empty graph with n nodes including the source and sink nodes.
+  private void initializeGraph() {
+    graph = new List[n];
+    for (int i = 0; i < n; i++) graph[i] = new ArrayList<Edge>();
+  }
+
+  // Add labels to vertices in the graph.
+  private void assignLabelsToVertices(String[] vertexLabels) {
+    if(vertexLabels.length != n)
+      throw new IllegalArgumentException(String.format("You must pass %s number of labels", n));
+    this.vertexLabels = vertexLabels;
+  }
+
+  /**
+   * Adds a list of directed edges (and residual edges) to the flow graph.
+   *
+   * @param edges - A list of all edges to be added to the flow graph.
+   */
+  public void addEdges(List<Edge> edges) {
+    if (edges == null) throw new IllegalArgumentException("Edges cannot be null");
+    for(Edge edge : edges) {
+      addEdge(edge.from, edge.to, edge.capacity);
+    }
+  }
+
+  /**
+   * Adds a directed edge (and residual edge) to the flow graph.
+   *
+   * @param from - The index of the node the directed edge starts at.
+   * @param to - The index of the node the directed edge ends at.
+   * @param capacity - The capacity of the edge.
+   */
+  public void addEdge(int from, int to, long capacity) {
+    if (capacity < 0) throw new IllegalArgumentException("Capacity < 0");
+    Edge e1 = new Edge(from, to, capacity);
+    Edge e2 = new Edge(to, from, 0);
+    e1.residual = e2;
+    e2.residual = e1;
+    graph[from].add(e1);
+    graph[to].add(e2);
+    edges.add(e1);
+  }
+
+  /** Cost variant of {@link #addEdge(int, int, int)} for min-cost max-flow */
+  public void addEdge(int from, int to, long capacity, long cost) {
+    Edge e1 = new Edge(from, to, capacity, cost);
+    Edge e2 = new Edge(to, from, 0, -cost);
+    e1.residual = e2;
+    e2.residual = e1;
+    graph[from].add(e1);
+    graph[to].add(e2);
+    edges.add(e1);
+  }
+
+  // Marks node 'i' as visited.
+  public void visit(int i) {
+    visited[i] = visitedToken;
+  }
+
+  // Returns whether or not node 'i' has been visited.
+  public boolean visited(int i) {
+    return visited[i] == visitedToken;
+  }
+
+  // Resets all nodes as unvisited. This is especially useful to do
+  // between iterations of finding augmenting paths, O(1)
+  public void markAllNodesAsUnvisited() {
+    visitedToken++;
+  }
+
+  /**
+   * Returns the graph after the solver has been executed. This allow you to inspect the {@link
+   * Edge#flow} compared to the {@link Edge#capacity} in each edge. This is useful if you want to
+   * figure out which edges were used during the max flow.
+   */
+  public List<Edge>[] getGraph() {
+    execute();
+    return graph;
+  }
+
+  /**
+   * Returns all edges in this flow network
+   */
+  public List<Edge> getEdges() {
+    return edges;
+  }
+
+  // Returns the maximum flow from the source to the sink.
+  public long getMaxFlow() {
+    execute();
+    return maxFlow;
+  }
+
+  // Returns the min cost from the source to the sink.
+  // NOTE: This method only applies to min-cost max-flow algorithms.
+  public long getMinCost() {
+    execute();
+    return minCost;
+  }
+
+  // Returns the min-cut of this flow network in which the nodes on the "left side"
+  // of the cut with the source are marked as true and those on the "right side"
+  // of the cut with the sink are marked as false.
+  public boolean[] getMinCut() {
+    execute();
+    return minCut;
+  }
+
+  /**
+   * Used to set the source for this flow network 
+   */
+  public void setSource(int s) {
+    this.s = s;
+  }
+
+  /**
+   * Used to set the sink for this flow network 
+   */
+  public void setSink(int t) {
+    this.t = t;
+  }
+
+  /**
+   * Get source for this flow network 
+   */
+  public int getSource() {
+    return s;
+  }
+
+  /**
+   * Get sink for this flow network 
+   */
+  public int getSink() {
+    return t;
+  }
+
+  /**
+   * Set 'solved' flag to false to force recomputation of subsequent flows.
+   */
+  public void recompute() {
+    solved = false;
+  }
+
+  /**
+   * Print all edges.
+   */
+  public void printEdges() {
+    for(Edge edge : edges) {
+      System.out.println(String.format("%s ----%s----> %s", vertexLabels[edge.from], edge.capacity, vertexLabels[edge.to]));
+    }
+  }
+
+  // Wrapper method that ensures we only call solve() once
+  private void execute() {
+    if (solved) return;
+    solved = true;
+    solve();
+  }
+
+  // Method to implement which solves the network flow problem.
+  public abstract void solve();
 }
