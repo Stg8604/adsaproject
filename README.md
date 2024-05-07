@@ -18,3 +18,9 @@ A repository in Java which takes a group of users, and the amount they owe each 
 - Using a dbms to store the values and querying from a server.
 - Finding a faster and more efficient algorithm to reduce the graph.
 - Partitioning the storage across multiple servers to support concurrent requests.
+  
+# Changes after review-1
+
+- Ford-Fulkerson and Edmon-Karp algorithms are added and the time values for tthe same input graph are computed.
+- Time value for the the same graph using Dinic's algorithm is also computed
+- A database in JS using SQLlite
